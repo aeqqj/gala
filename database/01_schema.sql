@@ -72,18 +72,6 @@ create table public.event_members (
   constraint event_members_pkey primary key (event_id, user_id),
   constraint fk_event foreign KEY (event_id) references events (event_id) on delete CASCADE,
   constraint fk_user foreign KEY (user_id) references users (user_id) on delete CASCADE,
-  constraint check_rsvp_status check (
-    (
-      rsvp_status = any (
-        array[
-          'attending'::text,
-          'maybe'::text,
-          'declined'::text,
-          'pending'::text
-        ]
-      )
-    )
-  ),
   constraint event_members_rsvp_status_check check (
     (
       rsvp_status = any (
