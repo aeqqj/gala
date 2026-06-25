@@ -19,10 +19,21 @@ JOIN
 WHERE 
     n.nspname = 'public';
 
+
+-- 1. Drop the existing function versions
+-- If they have different parameters, you MUST specify them to drop them
+DROP FUNCTION IF EXISTS public.create_event(text, text, timestamp with time zone, timestamp with time zone, text);
+DROP FUNCTION IF EXISTS public.create_event(text, text, timestamp with time zone, timestamp with time zone, text, text, numeric, numeric);
+-- Add any other variations if you created them with different argument lists
+
 */
 -- ==========================================
 
 
+
+-- ------------------------------------------
+-- INSERT_FRIENDSHIP FUNCTION
+-- ------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.insert_friendship(id1 bigint, id2 bigint)
  RETURNS void
@@ -40,42 +51,19 @@ END;
 $function$
 
 
-
-CREATE OR REPLACE FUNCTION public.handle_new_user()
- RETURNS trigger
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path = public
-AS $function$
-BEGIN
-  INSERT INTO public.users (
-    username, 
-    first_name, 
-    last_name, 
-    user_email, 
-    auth_id
-  )
-  VALUES (
-    -- Now uses a guaranteed unique string: 'user_' + the user's UUID
-    COALESCE(new.raw_user_meta_data->>'username', 'user_' || new.id::text),
-    COALESCE(new.raw_user_meta_data->>'first_name', 'First'),
-    COALESCE(new.raw_user_meta_data->>'last_name', 'Name'),
-    new.email,
-    new.id
-  );
-  RETURN new;
-END;
-$function$
-
-
-
+-- ------------------------------------------
+-- CREATE_EVENT FUNCTION
+-- ------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.create_event(
     event_title text, 
     event_desc text, 
     start_date timestamp with time zone, 
-    end_date timestamp with time zone, -- Added parameter
-    location_name text
+    end_date timestamp with time zone, 
+    location_name text,
+    google_place_id text DEFAULT NULL, -- New optional param
+    lat numeric DEFAULT NULL,          -- New optional param
+    long numeric DEFAULT NULL          -- New optional param
 )
 RETURNS bigint
 LANGUAGE plpgsql
@@ -90,6 +78,7 @@ BEGIN
         RAISE EXCEPTION 'End date cannot be before start date.';
     END IF;
 
+    -- Insert including new location fields
     INSERT INTO public.events (
         event_title, 
         event_description, 
@@ -97,19 +86,26 @@ BEGIN
         end_timestamp, 
         event_status, 
         location_name, 
+        google_place_id,
+        location_lat,
+        location_long,
         organizer_id
     )
     VALUES (
         event_title, 
         event_desc, 
         start_date, 
-        end_date, -- Use the provided end_date
+        end_date, 
         'scheduled', 
         location_name, 
+        google_place_id,
+        lat,
+        long,
         (SELECT user_id FROM public.users WHERE auth_id = auth.uid())
     )
     RETURNING event_id INTO new_event_id;
 
+    -- Organizer membership
     INSERT INTO public.event_members (event_id, user_id, rsvp_status)
     VALUES (
         new_event_id, 
@@ -122,6 +118,9 @@ END;
 $function$;
 
 
+-- ------------------------------------------
+-- ACCEPT_EVENT_INVITATION FUNCTION
+-- ------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.accept_event_invitation(invite_id bigint)
 RETURNS void
@@ -150,3 +149,34 @@ BEGIN
     VALUES (target_event_id, target_recipient_id, 'attending');
 END;
 $$;
+
+
+-- ------------------------------------------
+-- HANDLE_NEW_USER FUNCTION
+-- ------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path = public
+AS $function$
+BEGIN
+  INSERT INTO public.users (
+    username, 
+    first_name, 
+    last_name, 
+    user_email, 
+    auth_id
+  )
+  VALUES (
+    -- Now uses a guaranteed unique string: 'user_' + the user's UUID
+    COALESCE(new.raw_user_meta_data->>'username', 'user_' || new.id::text),
+    COALESCE(new.raw_user_meta_data->>'first_name', 'First'),
+    COALESCE(new.raw_user_meta_data->>'last_name', 'Name'),
+    new.email,
+    new.id
+  );
+  RETURN new;
+END;
+$function$

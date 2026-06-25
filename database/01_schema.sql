@@ -44,8 +44,20 @@ create table public.events (
   end_timestamp timestamp with time zone not null,
   event_status text not null,
   location_name text null,
+  google_place_id text null,
   constraint events_pkey primary key (event_id),
-  constraint events_organizer_id_fkey foreign KEY (organizer_id) references users (user_id) on delete CASCADE
+  constraint events_organizer_id_fkey foreign KEY (organizer_id) references users (user_id) on delete CASCADE,
+  constraint events_status_check check (
+    (
+      event_status = any (
+        array[
+          'scheduled'::text,
+          'cancelled'::text,
+          'completed'::text
+        ]
+      )
+    )
+  )
 ) TABLESPACE pg_default;
 
 -- ------------------------------------------
@@ -56,11 +68,23 @@ create table public.event_members (
   event_id bigint not null,
   user_id bigint not null,
   joined_at timestamp with time zone not null default now(),
-  rsvp_status text not null default ''::text,
+  rsvp_status text not null default 'pending'::text,
   constraint event_members_pkey primary key (event_id, user_id),
   constraint fk_event foreign KEY (event_id) references events (event_id) on delete CASCADE,
   constraint fk_user foreign KEY (user_id) references users (user_id) on delete CASCADE,
   constraint check_rsvp_status check (
+    (
+      rsvp_status = any (
+        array[
+          'attending'::text,
+          'maybe'::text,
+          'declined'::text,
+          'pending'::text
+        ]
+      )
+    )
+  ),
+  constraint event_members_rsvp_status_check check (
     (
       rsvp_status = any (
         array[

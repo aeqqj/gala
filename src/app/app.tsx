@@ -1,11 +1,12 @@
+import TestSupabase from '../components/TestSupabase';
+
 function App() {
   return (
-    <>
-      <section className="h-screen w-screen flex justify-center items-center">
-        HALLOO
-      </section>
-    </>
-  )
+    <div className="p-10">
+      <h1 className="text-2xl font-bold mb-4">Database Test</h1>
+      <TestSupabase />
+    </div>
+  );
 }
 
 export default App;
