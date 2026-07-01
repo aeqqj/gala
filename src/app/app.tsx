@@ -1,15 +1,11 @@
-import { Outlet } from "react-router-dom";
-import "./index.css";
-import { NavigationBar } from "../components/navigation.tsx"
+import TestSupabase from '../components/TestSupabase';
 
 function App() {
   return (
-    <>
-      <NavigationBar />
-      <main>
-        <Outlet />
-      </main>
-    </>
-  )
+    <div className="p-10">
+      <h1 className="text-2xl font-bold mb-4">Database Test</h1>
+      <TestSupabase />
+    </div>
+  );
 }
 export default App
